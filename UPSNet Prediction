@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 27 17:47:38 2019
+
+@author: modified from AI-liu https://github.com/uber-research/UPSNet/issues/75
+"""
+
+
+import matplotlib.pyplot as plt
+
+import os
+import torch
+import torch.nn as nn
+import argparse
+import cv2
+import numpy as np
+from PIL import Image, ImageDraw
+from upsnet.config.parse_args import parse_args
+
+from upsnet.config.config import *
+from upsnet.models import *
+def Preprocessing(im):
+    im_resize = cv2.resize(im,(256*8,192*8),interpolation=cv2.INTER_CUBIC)
+    im_resize = im_resize.transpose(2, 0, 1)
+    
+    im_tensor = torch.from_numpy(im_resize)
+    im_tensor =torch.unsqueeze(im_tensor,0).type(torch.FloatTensor).cuda()
+#    print(im_tensor.shape) # torch.Size([1, 3, 1024, 2048])
+    
+    test_fake_numpy_data = np.random.rand(1,3)
+    data = {'data': im_tensor , 'im_info' : test_fake_numpy_data}
+    #print(data['im_info'])
+    
+    #print(output)
+    #print(output['fcn_outputs'])
+    return data
+#%%
+parser = argparse.ArgumentParser()
+args, rest = parser.parse_known_args()
+args.cfg = "/cs/labs/danix/wuzongze/UPSNet/upsnet/experiments/upsnet_resnet101_dcn_coco_3x_16gpu.yaml"
+args.weight_path = "/cs/labs/danix/wuzongze/UPSNet/model/upsnet_resnet_101_dcn_coco_270000.pth"
+args.eval_only = "Ture"
+update_config(args.cfg)
+
+test_model = eval("resnet_50_upsnet")().cuda()
+test_model.load_state_dict(torch.load(args.weight_path))
+
+#print(test_model)
+
+for p in test_model.parameters():
+    p.requires_grad = False
+
+test_model.eval()
+#%%
+file_path='/cs/labs/danix/wuzongze/dataset/google_image/npy/'
+imgs=np.load(file_path+'sparse_room.npy')
+
+#%%
+i=0
+im=imgs[i]
+data=Preprocessing(im)
+output = test_model(data)
